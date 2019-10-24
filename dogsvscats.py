@@ -103,6 +103,10 @@ subsample()
 
 #%%
 # build the simple convnet
+# - Dropout layer at dropout rate of 0.5 to reduce overfitting.
+#   Dropout randomly zeros half of the outputs of the previous layer;
+#   equivalent to randomly shifting the active nodes to prevent any
+#   'conspiracies'.
 #%%
 model = models.Sequential()
 model.add(layers.Conv2D(32, (3,3), activation='relu', input_shape=(150,150,3)))
@@ -114,6 +118,7 @@ model.add(layers.MaxPool2D((2,2)))
 model.add(layers.Conv2D(128, (3,3), activation='relu'))
 model.add(layers.MaxPool2D((2,2)))
 model.add(layers.Flatten())
+model.add(layers.Dropout(0.5))
 model.add(layers.Dense(512, activation='relu'))
 model.add(layers.Dense(1, activation='sigmoid'))
 print(model.summary())
@@ -126,13 +131,25 @@ model.compile(
 
 #%% 
 # Image generator. lazily loads images from disk 
+# - Data augmentation by generating more data from original set by 
+#   rotating, shifting, sheering, scaling, flipping.
+#   Reduces overfitting when the available training dataset is small
 #%%
-train_data = ImageDataGenerator(rescale=1./255).flow_from_directory(
+datagen = ImageDataGenerator(
+    rescale=1./255,
+    rotation_range=40,
+    width_shift_range=0.2,
+    height_shift_range=0.2,
+    shear_range=0.2,
+    zoom_range=0.2,
+    horizontal_flip=True
+    )
+train_data = datagen.flow_from_directory(
     directory=train_dir,
     target_size=(150,150),
     batch_size=20,
     class_mode='binary'
-)
+    )
 
 validation_data = ImageDataGenerator(rescale=1./255).flow_from_directory(
     directory=validation_dir,
@@ -144,7 +161,7 @@ validation_data = ImageDataGenerator(rescale=1./255).flow_from_directory(
 #%%
 # connect model to generator and train
 #%%
-epochs = 5
+epochs = 10
 history = model.fit_generator(
     train_data,
     steps_per_epoch=100,
@@ -180,6 +197,5 @@ plt.title('loss')
 plt.legend()
 
 plt.show()
-
 
 #%%
